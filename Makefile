@@ -10,7 +10,8 @@ all:    world
 #  GNU Make >= 3.82
 #  GCC ;)
 
-TARGET_ARCH ?= x86_64
+TARGET_ARCH ?= arm
+TARGET_CROSS ?= arm-none-linux-gnueabi-
 
 ifndef PARALLEL
 ifndef NOPARALLEL
@@ -41,23 +42,23 @@ world:	${SYSROOT}/bin/busybox \
 
 # --- kernel
 
-build-linux/arch/x86/configs:
+build-linux/arch/arm/configs:
 	mkdir -p $@
 
 .PHONY: kernel
 
-build-linux/arch/x86/configs/x86_64_qemu_defconfig: | build-linux/arch/x86/configs configs/x86_64_qemu_defconfig
-	cp configs/x86_64_qemu_defconfig $@
+build-linux/arch/arm/configs/bcm2709_defconfig: | build-linux/arch/arm/configs configs/bcm2709_defconfig
+	cp configs/bcm2709_defconfig $@
 
-build-linux/.config:   | build-linux/arch/x86/configs/x86_64_qemu_defconfig
-	make ARCH=${TARGET_ARCH} -C ${KERNEL_TREE} O=${CURDIR}/build-linux x86_64_qemu_defconfig
+build-linux/.config:   | build-linux/arch/arm/configs/bcm2709_defconfig
+	make ARCH=${TARGET_ARCH} -C ${KERNEL_TREE} O=${CURDIR}/build-linux bcm2709_defconfig
 
-build-linux/arch/x86_64/boot/bzImage: build-linux/.config
-	make ${PARALLEL} -C build-linux ARCH=${TARGET_ARCH} V=1
+build-linux/arch/arm/boot/bzImage: build-linux/.config
+	make ${PARALLEL} -C build-linux ARCH=${TARGET_ARCH} CROSS_COMPILE=${TARGET_CROSS}
 
 .PHONY: .install-modules
 
-${SYSROOT}/lib/modules:	build-linux/arch/x86_64/boot/bzImage
+${SYSROOT}/lib/modules:	build-linux/arch/arm/boot/bzImage
 	make ${PARALLEL} -C build-linux INSTALL_MOD_PATH=${SYSROOT} modules_install
 
 .install-modules: ${SYSROOT}/lib/modules ${SYSROOT}/.mount-stamp
@@ -69,6 +70,15 @@ clean::
 
 distclean::
 	-rm -rf build-linux
+
+# --- diodes modules
+
+.PHONY: diodes
+
+diodes/gpio-diodes.ko:
+	make -C diodes KDIR=${CURDIR}/build-linux ARCH=${TARGET_ARCH} CROSS_COMPILE=${TARGET_CROSS} V=1 all
+
+diodes: diodes/gpio-diodes.ko build-linux/arch/arm/boot/bzImage
 
 # --- initramfs
 

@@ -4,3 +4,6 @@
 [submodule "busybox"]
 	path = busybox
 	url = git://git.busybox.net/busybox
+[submodule "diodes"]
+	path = diodes
+	url = https://github.com/maquefel/diodes

@@ -4,3 +4,18 @@
 [submodule "busybox"]
 	path = busybox
 	url = git://git.busybox.net/busybox
+[submodule "s6-linux-init"]
+	path = s6/s6-linux-init
+	url = git://git.skarnet.org/s6-linux-init
+[submodule "skalibs"]
+	path = s6/skalibs
+	url = https://github.com/skarnet/skalibs.git
+[submodule "s6/s6-rc"]
+	path = s6/s6-rc
+	url = git://git.skarnet.org/s6-rc
+[submodule "s6/execline"]
+	path = s6/execline
+	url = git://git.skarnet.org/execline
+[submodule "s6/s6"]
+	path = s6/s6
+	url = git://git.skarnet.org/s6

@@ -107,9 +107,6 @@ ${SYSROOT}/etc/group:	etc/group ${SYSROOT}/.mount-stamp | ${SYSROOT}/etc
 ${SYSROOT}/etc/inittab:	etc/inittab ${SYSROOT}/.mount-stamp | ${SYSROOT}/etc
 	install -m 644 $< $@
 
-${SYSROOT}/init:	scripts/init | ${SYSROOT}
-	install -m 755 $< $@
-
 ${SYSROOT}/loginroot:	scripts/loginroot | ${SYSROOT}
 	install -m 755 $< $@
 
@@ -141,7 +138,113 @@ clean::
 distclean::
 	rm -rf build-busybox
 
-initramfs.cpio.xz: ${SYSROOT}/bin/busybox ${SYSROOT}/loginroot ${SYSROOT}/init ${SYSROOT}/etc/inittab ${SYSROOT}/etc/group ${SYSROOT}/etc/passwd .install-modules
+# --- s6
+
+s6/skalibs/config.mak:
+	(cd s6/skalibs && ./configure --prefix=${SYSROOT})
+
+s6/skalibs/libskarnet.so.xyzzy: s6/skalibs/config.mak
+	(cd s6/skalibs && make ${PARALLEL})
+
+${SYSROOT}/lib/libskarnet.so: s6/skalibs/libskarnet.so.xyzzy | populate-dirs
+	(cd s6/skalibs && make install)
+
+s6/execline/config.mak:
+	(cd s6/execline && ./configure --prefix=${SYSROOT} \
+	--with-include=../skalibs/src/include/ \
+	--with-lib=${SYSROOT}/lib \
+	--with-lib=${SYSROOT}/lib/skalibs \
+	--enable-static-libc)
+
+s6/execline/execlineb: ${SYSROOT}/lib/libskarnet.so s6/execline/config.mak
+	(cd s6/execline && make ${PARALLEL})
+
+${SYSROOT}/bin/execlineb: s6/execline/execlineb
+	(cd s6/execline && make install)
+
+s6/s6/config.mak:
+	(cd s6/s6 && ./configure --prefix=${SYSROOT} \
+	--with-include=../skalibs/src/include \
+	--with-include=../execline/src/include \
+	--with-lib=${SYSROOT}/lib \
+	--with-lib=${SYSROOT}/lib/execline \
+	--with-lib=${SYSROOT}/lib/skalibs \
+	--enable-static-libc)
+
+s6/s6/s6-log: ${SYSROOT}/lib/libskarnet.so ${SYSROOT}/bin/execlineb s6/s6/config.mak
+	(cd s6/s6 && make ${PARALLEL})
+
+${SYSROOT}/bin/s6-log:	s6/s6/s6-log
+	(cd s6/s6 && make install)
+
+s6/s6-linux-init/config.mak:
+	(cd s6/s6-linux-init && ./configure --prefix=${SYSROOT} \
+	--enable-absolute-paths \
+	--with-include=../skalibs/src/include \
+	--with-include=../s6/src/include \
+	--with-include=../execline/src/include \
+	--with-lib=${SYSROOT}/lib \
+	--with-lib=${SYSROOT}/lib/s6 \
+	--with-lib=${SYSROOT}/lib/skalibs \
+	--enable-static-libc)
+
+s6/s6-linux-init/s6-linux-init: ${SYSROOT}/lib/libskarnet.so ${SYSROOT}/bin/execlineb ${SYSROOT}/bin/s6-log s6/s6-linux-init/config.mak
+	(cd s6/s6-linux-init && make ${PARALLEL})
+
+${SYSROOT}/bin/s6-linux-init: s6/s6-linux-init/s6-linux-init
+	(cd s6/s6-linux-init && make install)
+	-rm -rf ${SYSROOT}/etc/s6-linux-init/skel
+
+s6/s6-rc/config.mak:
+	(cd s6/s6-rc && ./configure --prefix=${SYSROOT} \
+	--with-include=../skalibs/src/include \
+	--with-include=../s6/src/include \
+	--with-include=../execline/src/include \
+	--with-lib=${SYSROOT}/lib \
+	--with-lib=${SYSROOT}/lib/s6 \
+	--with-lib=${SYSROOT}/lib/execline \
+	--with-lib=${SYSROOT}/lib/skalibs \
+	--enable-static-libc)
+
+s6/s6-rc/s6-rc: ${SYSROOT}/lib/libskarnet.so ${SYSROOT}/bin/execlineb ${SYSROOT}/bin/s6-log s6/s6-rc/config.mak
+	(cd s6/s6-rc && make ${PARALLEL})
+
+${SYSROOT}/bin/s6-rc: s6/s6-rc/s6-rc
+	(cd s6/s6-rc && make install)
+
+${SYSROOT}/etc/s6-linux-init/skel:	etc/s6-linux-init/skel ${SYSROOT}/bin/s6-linux-init
+	cp -r $< $@
+
+${SYSROOT}/etc/s6-linux-init/current:	${SYSROOT}/etc/s6-linux-init/skel
+	LD_LIBRARY_PATH="${SYSROOT}/lib/" fakeroot-ng s6/s6-linux-init/s6-linux-init-maker -1 -G "/sbin/getty -n -L -l /loginroot 115200 ttyS0 vt100" ${SYSROOT}/etc/s6-linux-init/current
+	find $@ -type f -exec sed -i 's|${SYSROOT}||g' {} +
+
+${SYSROOT}/sbin/init: ${SYSROOT}/etc/s6-linux-init/current
+	cp $</bin/init $@
+
+${SYSROOT}/sbin/telinit: ${SYSROOT}/etc/s6-linux-init/current
+	cp $</bin/telinit $@
+
+${SYSROOT}/sbin/shutdown: ${SYSROOT}/etc/s6-linux-init/current
+	cp $</bin/shutdown $@
+
+${SYSROOT}/sbin/halt: ${SYSROOT}/etc/s6-linux-init/current
+	cp $</bin/halt $@
+
+${SYSROOT}/sbin/poweroff: ${SYSROOT}/etc/s6-linux-init/current
+	cp $</bin/poweroff $@
+
+${SYSROOT}/sbin/reboot: ${SYSROOT}/etc/s6-linux-init/current
+	cp $</bin/reboot $@
+
+${SYSROOT}/init:	scripts/init
+	cp $< $@
+
+.PHONY: .install-s6
+
+.install-s6 : ${SYSROOT}/bin/s6-linux-init ${SYSROOT}/bin/s6-rc ${SYSROOT}/etc/s6-linux-init/current ${SYSROOT}/sbin/init ${SYSROOT}/sbin/telinit ${SYSROOT}/sbin/shutdown ${SYSROOT}/sbin/halt ${SYSROOT}/sbin/poweroff ${SYSROOT}/sbin/reboot ${SYSROOT}/init
+
+initramfs.cpio.xz: ${SYSROOT}/bin/busybox ${SYSROOT}/loginroot ${SYSROOT}/init ${SYSROOT}/etc/inittab ${SYSROOT}/etc/group ${SYSROOT}/etc/passwd .install-modules .install-s6
 	(cd ${SYSROOT} && find . -print0 | cpio --null -ov --format=newc | xz -C crc32 > ../initramfs.cpio.xz)
 
 clean::

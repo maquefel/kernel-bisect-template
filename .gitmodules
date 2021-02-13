@@ -19,3 +19,9 @@
 [submodule "s6/s6"]
 	path = s6/s6
 	url = git://git.skarnet.org/s6
+[submodule "s6/s6-portable-utils"]
+	path = s6/s6-portable-utils
+	url = https://github.com/skarnet/s6-portable-utils.git
+[submodule "s6/s6-linux-utils"]
+	path = s6/s6-linux-utils
+	url = https://github.com/skarnet/s6-linux-utils.git

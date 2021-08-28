@@ -4,3 +4,9 @@
 [submodule "busybox"]
 	path = busybox
 	url = git://git.busybox.net/busybox
+[submodule "virtual_gpio_basic"]
+	path = virtual_gpio_basic
+	url = https://github.com/maquefel/virtual_gpio_basic.git
+[submodule "qemu"]
+	path = qemu
+	url = https://github.com/qemu/qemu.git

@@ -38,6 +38,8 @@ fi
 # Set up symlinks
 /bin/busybox --install -s
 
+/sbin/insmod /lib/modules/5.14.0-rc7+/extra/virtual_gpio_basic.ko
+
 /sbin/mdev -s
 
 /bin/mkdir -v /dev/shm

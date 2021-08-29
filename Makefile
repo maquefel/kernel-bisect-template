@@ -70,6 +70,30 @@ clean::
 distclean::
 	-rm -rf build-linux
 
+# --- gpio-tools
+
+build-linux/tools/gpio:
+	mkdir -p $@
+
+build-linux/tools/gpio/gpio-event-mon:	build-linux/tools/gpio
+	LDFLAGS="-static" make -C linux/tools/gpio/ O=build-linux/tools/gpio
+
+${SYSROOT}/usr/bin/gpio-event-mon:	build-linux/tools/gpio/gpio-event-mon
+	make -C linux/tools/gpio/ O=build-linux/tools/gpio DESTDIR=${SYSROOT} install
+
+# --- virtual-gpio-basic
+
+virtual_gpio_basic/vg_get_set:	virtual_gpio_basic/vg_get_set.c virtual_gpio_basic/ivshmem-client.c
+	make -C virtual_gpio_basic KDIR=${CURDIR}/build-linux QEMU_DIR=${CURDIR}/qemu
+
+virtual_gpio_basic/virtual_gpio_basic.ko:	virtual_gpio_basic/virtual_gpio_basic.c
+	make -C virtual_gpio_basic KDIR=${CURDIR}/build-linux QEMU_DIR=${CURDIR}/qemu modules
+
+.install-virtual-gpio:	virtual_gpio_basic/virtual_gpio_basic.ko virtual_gpio_basic/vg_get_set
+	make -C virtual_gpio_basic KDIR=${CURDIR}/build-linux QEMU_DIR=${CURDIR}/qemu modules_install
+
+.PHONY: .install-virtual-gpio
+
 # --- initramfs
 
 CREATE_DIRS := \
@@ -141,7 +165,9 @@ clean::
 distclean::
 	rm -rf build-busybox
 
-initramfs.cpio.xz: ${SYSROOT}/bin/busybox ${SYSROOT}/loginroot ${SYSROOT}/init ${SYSROOT}/etc/inittab ${SYSROOT}/etc/group ${SYSROOT}/etc/passwd .install-modules
+initramfs.cpio.xz: ${SYSROOT}/bin/busybox ${SYSROOT}/loginroot ${SYSROOT}/init ${SYSROOT}/etc/inittab ${SYSROOT}/etc/group ${SYSROOT}/etc/passwd \
+	${SYSROOT}/usr/bin/gpio-event-mon \
+	.install-modules .install-virtual-gpio
 	(cd ${SYSROOT} && find . -print0 | cpio --null -ov --format=newc | xz -C crc32 > ../initramfs.cpio.xz)
 
 clean::

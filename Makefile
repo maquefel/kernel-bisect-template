@@ -81,6 +81,19 @@ build-linux/tools/gpio/gpio-event-mon:	build-linux/tools/gpio
 ${SYSROOT}/usr/bin/gpio-event-mon:	build-linux/tools/gpio/gpio-event-mon
 	make -C linux/tools/gpio/ O=build-linux/tools/gpio DESTDIR=${SYSROOT} install
 
+# --- qemu
+
+qemu/build:
+	mkdir -p qemu/build
+
+qemu/Makefile:	qemu/configure	qemu/build
+	(cd qemu &&
+	./configure \
+	--target-list="x86_64-linux-user x86_64-softmmu")
+
+qemu/build/contrib/ivshmem-server/ivshmem-server:	qemu/Makefile
+	make -C qemu ${PARALLEL}
+
 # --- virtual-gpio-basic
 
 virtual_gpio_basic/vg_get_set:	virtual_gpio_basic/vg_get_set.c virtual_gpio_basic/ivshmem-client.c
